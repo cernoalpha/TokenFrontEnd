@@ -1,28 +1,17 @@
-import {
-    NavigationMenu,
-    NavigationMenuContent,
-    NavigationMenuItem,
-    NavigationMenuLink,
-    NavigationMenuList,
-    NavigationMenuTrigger,
-    // NavigationMenuIndicator,
-    // NavigationMenuViewport,
-} from "@/components/ui/navigation-menu"
+import { Link } from 'react-router-dom';
 
-const NavBar = () => {
-    return (
-        <NavigationMenu>
-            <NavigationMenuList>
-                <NavigationMenuItem>
-                    <NavigationMenuTrigger>Item One</NavigationMenuTrigger>
-                    <NavigationMenuContent>
-                        <NavigationMenuLink>Link</NavigationMenuLink>
-                    </NavigationMenuContent>
-                </NavigationMenuItem>
-            </NavigationMenuList>
-        </NavigationMenu>
+const Navbar = () => {
+  return (
+    <nav className="bg-primary text-primary-foreground w-screen">
+      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+        <Link to="/" className="text-2xl font-bold">Fractiona</Link>
+        <div className="space-x-4">
+          <Link to="/browse" className="hover:underline">Browse Assets</Link>
+          <Link to="/tokenize" className="hover:underline">Tokenize Asset</Link>
+        </div>
+      </div>
+    </nav>
+  );
+};
 
-    )
-
-}
-export default NavBar
+export default Navbar;
