@@ -1,7 +1,7 @@
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useAsset } from '@/services/assetService'; 
+import { useAsset } from '@/services/assetService';
 
 interface Asset {
   id: string;
@@ -14,12 +14,12 @@ interface Asset {
 
 const AssetDetails: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
-  
+
   if (!id) {
     return <div>Asset ID is missing</div>;
   }
 
-  const asset: Asset | null = useAsset(id); 
+  const asset: Asset | null = useAsset(id);
 
   if (!asset) {
     return <div>Asset not found</div>;
@@ -37,7 +37,9 @@ const AssetDetails: React.FC = () => {
           <p className="mb-2">Value: ${asset.value.toLocaleString()}</p>
           <p className="mb-2">Owner: {asset.owner}</p>
           <p className="mb-4">Description: {asset.description}</p>
-          <Button>Transfer Asset</Button>
+          <Button asChild>
+            <Link to={`/${asset.id}/trade`}>Trade Asset</Link>
+          </Button>
         </CardContent>
       </Card>
     </div>

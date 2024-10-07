@@ -11,8 +11,8 @@ interface Asset {
   
 
   let assets: Asset[] = [
-  { id: '1', name: 'Luxury Apartment', tokenId: '0x123', value: 500000, owner: '0xabc...', description: 'A high-end apartment in the city center.' },
-  { id: '2', name: 'Vintage Painting', tokenId: '0x456', value: 100000, owner: '0xdef...', description: 'A rare painting from the 18th century.' },
+  { id: '1', name: 'Luxury Apartment', tokenId: '0x123', value: 5000, owner: '0xabc...', description: 'A high-end apartment in the city center.' },
+  { id: '2', name: 'Vintage Painting', tokenId: '0x456', value: 1000, owner: '0xdef...', description: 'A rare painting from the 18th century.' },
 ];
 
 export const useAssets = (): Asset[] => {

@@ -5,6 +5,7 @@ import BrowseAssets from '@/pages/BrowseAssets';
 import TokenizeAsset from '@/pages/TokenizeAsset';
 import AssetDetails from '@/pages/AssetDetails';
 import LoginPage from '@/pages/Login';
+import AssetTradingPage from '@/pages/AssetTradingPage';
 
 const App = () => {
   return (
@@ -18,6 +19,7 @@ const App = () => {
             <Route path="/tokenize" element={<TokenizeAsset />} />
             <Route path="/asset/:id" element={<AssetDetails />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/:id/trade" element={<AssetTradingPage />} />
           </Routes>
         </main>
       </div>
