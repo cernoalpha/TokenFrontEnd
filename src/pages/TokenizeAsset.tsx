@@ -12,7 +12,7 @@ const TokenizeAsset: React.FC = () => {
   const [assetDescription, setAssetDescription] = useState<string>(''); 
   const navigate = useNavigate();
 
-  const handleSubmit = async async (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
 
     e.preventDefault();
     // const newAsset = await tokenizeAsset({
