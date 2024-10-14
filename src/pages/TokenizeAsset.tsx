@@ -12,14 +12,15 @@ const TokenizeAsset: React.FC = () => {
   const [assetDescription, setAssetDescription] = useState<string>(''); 
   const navigate = useNavigate();
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
+
     e.preventDefault();
-    const newAsset = tokenizeAsset({
-      name: assetName,
-      value: parseFloat(assetValue),
-      description: assetDescription 
-    });
-    navigate(`/asset/${newAsset.id}`); 
+    // const newAsset = tokenizeAsset({
+    //   name: assetName,
+    //   value: parseFloat(assetValue),
+    //   description: assetDescription 
+    // });
+    // navigate(`/asset/${(await newAsset).id}`); 
   };
 
   return (

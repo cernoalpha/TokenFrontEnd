@@ -4,21 +4,11 @@ import { Button } from "@/components/ui/button";
 import { useAssets } from '@/services/assetService';
 
 
-interface Asset {
-    id: string;
-    name: string;
-    tokenId: string;
-    value: number;
-    owner: string;
-  }
-  
-  interface AssetCardProps {
-    asset: Asset;
-  }
+interface AssetCardProps {
+  asset: Asset;
+}
 
-  
-
-  const AssetCard: React.FC<AssetCardProps> = ({ asset }) => (
+const AssetCard: React.FC<AssetCardProps> = ({ asset }) => (
   <Card>
     <CardHeader>
       <CardTitle>{asset.name}</CardTitle>
@@ -26,7 +16,18 @@ interface Asset {
     </CardHeader>
     <CardContent>
       <p>Value: ${asset.value.toLocaleString()}</p>
-      <p>Owner: {asset.owner}</p>
+      {/* <p>Owner: {asset.owner}</p> */}
+      <p>Description: {asset.description || "No description available"}</p>
+      <p>Price per Share: ${asset.pricePerShare?.toFixed(2) || "N/A"}</p>
+      <p>Total Shares: {asset.totalShares || "N/A"}</p>
+      {asset.images && asset.images.length > 0 && (
+        <div>
+          <p>Images:</p>
+          {asset.images.map((image, idx) => (
+            <img key={idx} src={image} alt={`${asset.name} image ${idx + 1}`} width="100" />
+          ))}
+        </div>
+      )}
     </CardContent>
     <CardFooter>
       <Button asChild>
@@ -35,6 +36,7 @@ interface Asset {
     </CardFooter>
   </Card>
 );
+
 
 const BrowseAssets = () => {
   const assets = useAssets();

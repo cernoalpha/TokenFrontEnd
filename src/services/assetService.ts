@@ -1,13 +1,5 @@
 import { useState, useEffect } from 'react';
 
-interface Asset {
-  id: string;
-  name: string;
-  tokenId: string;
-  value: number;
-  owner: string;
-  description: string;
-}
 
 export const useAssets = (): Asset[] => {
   const [allAssets, setAllAssets] = useState<Asset[]>([]);
@@ -17,7 +9,18 @@ export const useAssets = (): Asset[] => {
       try {
         const response = await fetch('http://localhost:8979/api/assets');
         const data = await response.json();
-        setAllAssets(data);
+
+        // Ensure default values for missing fields
+        const processedAssets = data.map((asset: any) => ({
+          ...asset,
+          ownershipDocument: asset.ownershipDocument || '',
+          images: asset.images || [],
+          totalShares: asset.totalShares || 100,
+          pricePerShare: asset.pricePerShare || asset.value / 100,
+          priceHistory: asset.priceHistory || [],
+        }));
+
+        setAllAssets(processedAssets);
       } catch (error) {
         console.error('Error fetching assets:', error);
       }
@@ -28,6 +31,7 @@ export const useAssets = (): Asset[] => {
 
   return allAssets;
 };
+
 
 export const useAsset = (id: string): Asset | null => {
   const [asset, setAsset] = useState<Asset | null>(null);

@@ -3,14 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { useAsset } from '@/services/assetService';
 
-interface Asset {
-  id: string;
-  name: string;
-  tokenId: string;
-  value: number;
-  owner: string;
-  description: string;
-}
+
 
 const AssetDetails: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
@@ -35,7 +28,6 @@ const AssetDetails: React.FC = () => {
         </CardHeader>
         <CardContent>
           <p className="mb-2">Value: ${asset.value.toLocaleString()}</p>
-          <p className="mb-2">Owner: {asset.owner}</p>
           <p className="mb-4">Description: {asset.description}</p>
           <Button asChild>
             <Link to={`/${asset.id}/trade`}>Trade Asset</Link>
