@@ -53,14 +53,11 @@ export const useAsset = (id: string): Asset | null => {
   return asset;
 };
 
-export const tokenizeAsset = async (newAsset: Omit<Asset, 'id' | 'tokenId' | 'owner'>): Promise<Asset> => {
+export const tokenizeAsset = async (newAsset: FormData): Promise<Asset> => {
   try {
     const response = await fetch('http://localhost:8979/api/assets', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(newAsset),
+      body: newAsset, 
     });
 
     const createdAsset = await response.json();
@@ -70,3 +67,4 @@ export const tokenizeAsset = async (newAsset: Omit<Asset, 'id' | 'tokenId' | 'ow
     throw error;
   }
 };
+
