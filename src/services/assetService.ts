@@ -10,7 +10,6 @@ export const useAssets = (): Asset[] => {
         const response = await fetch('http://localhost:8979/api/assets');
         const data = await response.json();
 
-        // Ensure default values for missing fields
         const processedAssets = data.map((asset: any) => ({
           ...asset,
           ownershipDocument: asset.ownershipDocument || '',

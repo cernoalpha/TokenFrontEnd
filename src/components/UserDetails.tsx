@@ -21,23 +21,12 @@ interface PendingOrder {
 }
 
 const UserDetails: React.FC<{ uid: string }> = ({ uid }) => {
-    const [fullName, setFullName] = useState<string | null>(null);
     const [pendingOrders, setPendingOrders] = useState<PendingOrder[] | null>(null);
     const [matchedOrders, setMatchedOrders] = useState<Record<string, any> | null>(null);
     const [assets, setAssets] = useState<Asset[] | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Fetch User Details
-        const userRef = ref(database, `users/${uid}`);
-        onValue(userRef, (snapshot) => {
-            if (snapshot.exists()) {
-                const userData = snapshot.val();
-                setFullName(userData.fullName || "No name provided");
-            } else {
-                setFullName(null);
-            }
-        }, (error) => setError(error.message));
 
         // Fetch Pending Orders
         const pendingOrdersRef = ref(database, `orders/${uid}/pendingOrders`);
@@ -72,11 +61,10 @@ const UserDetails: React.FC<{ uid: string }> = ({ uid }) => {
 
     return (
         <div className="space-y-6">
-
             {/* Pending Orders */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Pending Orders</CardTitle>
+                    <CardTitle>Pending positions</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {pendingOrders ? (
@@ -96,7 +84,7 @@ const UserDetails: React.FC<{ uid: string }> = ({ uid }) => {
             {/* Matched Orders */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Matched Orders</CardTitle>
+                    <CardTitle>Active positions</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {matchedOrders ? (
