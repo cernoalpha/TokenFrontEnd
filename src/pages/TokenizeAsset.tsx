@@ -1,28 +1,27 @@
-import { useState, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { tokenizeAsset } from '@/services/assetService';
+import { database, ref as databaseRef, set, push, auth, storage } from "@/hooks/firebase";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const TokenizeAsset: React.FC = () => {
-  const [assetName, setAssetName] = useState<string>('');
-  const [assetValue, setAssetValue] = useState<string>('');
-  const [assetDescription, setAssetDescription] = useState<string>('');
-  const [assetType, setAssetType] = useState<string>('Physical'); // Physical or Digital
+  const [assetName, setAssetName] = useState<string>("");
+  const [assetValue, setAssetValue] = useState<string>("");
+  const [assetDescription, setAssetDescription] = useState<string>("");
+  const [assetType, setAssetType] = useState<string>("Physical");
   const [ownershipDocument, setOwnershipDocument] = useState<File | null>(null);
   const [assetImages, setAssetImages] = useState<FileList | null>(null);
-  const [totalShares, setTotalShares] = useState<number>(100); // Default value
   const [pricePerShare, setPricePerShare] = useState<number>(0);
   const navigate = useNavigate();
 
-  // Update price per share whenever value or shares change
   const updatePricePerShare = () => {
     const value = parseFloat(assetValue);
-    if (value > 0 && totalShares >= 100) {
-      setPricePerShare(value / totalShares);
+    if (value > 0) {
+      setPricePerShare(value / 1000);
     } else {
       setPricePerShare(0);
     }
@@ -33,44 +32,90 @@ const TokenizeAsset: React.FC = () => {
     updatePricePerShare();
   };
 
-  const handleSharesChange = (shares: number) => {
-    if (shares >= 100) {
-      setTotalShares(shares);
-      updatePricePerShare();
+  const validateForm = () => {
+    if (!assetName || !assetValue || !assetDescription || !pricePerShare) {
+      alert("Please fill in all required fields.");
+      return false;
     }
+    if (assetType === "Physical" && !ownershipDocument) {
+      alert("Ownership document is required for physical assets.");
+      return false;
+    }
+    if (assetImages && assetImages.length === 0) {
+      alert("At least one image must be uploaded.");
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
   
-    if (!ownershipDocument && assetType === "Physical") {
-      alert("Ownership document is required for physical assets.");
+    if (!validateForm()) return;
+  
+    const userUID = auth.currentUser?.uid;
+  
+    if (!userUID) {
+      alert("You must be logged in to tokenize an asset.");
       return;
     }
   
-    const formData = new FormData();
-    formData.append('name', assetName);
-    formData.append('value', assetValue);
-    formData.append('description', assetDescription);
-    formData.append('type', assetType);
-    if (ownershipDocument) formData.append('ownershipDocument', ownershipDocument);
-    if (assetImages) {
-      Array.from(assetImages).forEach((file, index) => {
-        formData.append(`images[${index}]`, file);
-      });
-    }
-    formData.append('totalShares', totalShares.toString());
-    formData.append('pricePerShare', pricePerShare.toString());
+    const userAssetsRef = databaseRef(database, `assets/${userUID}`);
+    const newAssetRef = push(userAssetsRef);
+  
+    const assetData: {
+      name: string;
+      value: string;
+      description: string;
+      type: string;
+      totalShares: string;
+      pricePerShare: number;
+      createdAt: string;
+      ownershipDocumentURL?: string;
+      assetImages?: string[];
+    } = {
+      name: assetName,
+      value: assetValue,
+      description: assetDescription,
+      type: assetType,
+      totalShares: "1000",
+      pricePerShare,
+      createdAt: new Date().toISOString(),
+    };
   
     try {
-      const createdAsset = await tokenizeAsset(formData);
-      navigate(`/asset/${createdAsset.id}`);
+      // Upload ownership document
+      if (ownershipDocument) {
+        const ownershipDocPath = `user_assets/${userUID}/${newAssetRef.key}/ownershipDocument/${ownershipDocument.name}`;
+        const ownershipDocStorageRef = storageRef(storage, ownershipDocPath);
+        const ownershipSnapshot = await uploadBytes(ownershipDocStorageRef, ownershipDocument);
+        const ownershipDocumentURL = await getDownloadURL(ownershipSnapshot.ref);
+        assetData.ownershipDocumentURL = ownershipDocumentURL;
+      }
+  
+      // Upload images
+      if (assetImages?.length) {
+        const imageURLs: string[] = [];
+        for (const file of Array.from(assetImages)) {
+          const imagePath = `user_assets/${userUID}/${newAssetRef.key}/images/${file.name}`;
+          const imageStorageRef = storageRef(storage, imagePath);
+          const imageSnapshot = await uploadBytes(imageStorageRef, file);
+          const imageURL = await getDownloadURL(imageSnapshot.ref);
+          imageURLs.push(imageURL);
+        }
+        assetData.assetImages = imageURLs; 
+      }
+  
+      await set(newAssetRef, assetData);
+  
+      // Navigate to asset page
+      // navigate(`/asset/${newAssetRef.key}`);
     } catch (error) {
-      console.error('Error creating asset:', error);
+      console.error("Error creating asset:", error);
+      alert("Error creating asset. Please try again.");
     }
   };
   
-
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6">Tokenize New Asset</h1>
@@ -81,7 +126,6 @@ const TokenizeAsset: React.FC = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Asset Type Toggle */}
             <div className="space-y-2">
               <Label>Asset Type</Label>
               <div className="flex items-center space-x-4">
@@ -102,7 +146,6 @@ const TokenizeAsset: React.FC = () => {
               </div>
             </div>
 
-            {/* Asset Name */}
             <div className="space-y-2">
               <Label htmlFor="name">Asset Name</Label>
               <Input
@@ -113,7 +156,6 @@ const TokenizeAsset: React.FC = () => {
               />
             </div>
 
-            {/* Asset Value */}
             <div className="space-y-2">
               <Label htmlFor="value">Asset Value ($)</Label>
               <Input
@@ -127,7 +169,6 @@ const TokenizeAsset: React.FC = () => {
               />
             </div>
 
-            {/* Asset Description */}
             <div className="space-y-2">
               <Label htmlFor="description">Asset Description</Label>
               <Textarea
@@ -138,12 +179,10 @@ const TokenizeAsset: React.FC = () => {
               />
             </div>
 
-            {/* Ownership Document - Only for Physical Assets */}
             {assetType === "Physical" && (
               <div className="space-y-2">
-                <Label htmlFor="ownership-document">Ownership Document (PDF only)</Label>
+                <Label htmlFor="ownership-document">Ownership Document</Label>
                 <Input
-                  className='bg-slate-200'
                   id="ownership-document"
                   type="file"
                   accept="application/pdf"
@@ -153,11 +192,9 @@ const TokenizeAsset: React.FC = () => {
               </div>
             )}
 
-            {/* Asset Images */}
             <div className="space-y-2">
-              <Label htmlFor="images">Asset Images (Upload)</Label>
+              <Label htmlFor="images">Asset Images</Label>
               <Input
-                className='bg-slate-200'
                 id="images"
                 type="file"
                 accept="image/*"
@@ -166,27 +203,11 @@ const TokenizeAsset: React.FC = () => {
               />
             </div>
 
-            {/* Total Shares */}
             <div className="space-y-2">
-              <Label htmlFor="total-shares">Total Shares (min: 100)</Label>
-              <Input
-                id="total-shares"
-                type="number"
-                min="100"
-                value={totalShares}
-                onChange={(e) => handleSharesChange(parseInt(e.target.value, 10))}
-                required
-              />
+              <Label>Price Per Share</Label>
+              <p>{pricePerShare.toFixed(2)}</p>
             </div>
 
-            {/* Price Per Share */}
-            <div className="space-y-2">
-              <Label>Price Per Share ($)</Label>
-              <p className="text-md ml-2">{pricePerShare.toFixed(2)}</p>
-            </div>
-
-
-            {/* Submit Button */}
             <Button type="submit">Tokenize Asset</Button>
           </form>
         </CardContent>

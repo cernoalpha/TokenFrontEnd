@@ -1,27 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { auth } from "@/hooks/firebase"; 
-import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
-import { User } from 'firebase/auth';
+import { auth, database, get, ref, set, storage } from "@/hooks/firebase";
+import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from "firebase/auth";
+import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import UserDetails from "@/components/UserDetails";
+import Web3 from "web3";
+import Loader from "@/components/Loader";
 
 const googleProvider = new GoogleAuthProvider();
 
 const LoginPage: React.FC = () => {
-    const [user, setUser] = useState<User | null>(null); 
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+  const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isDetailsRequired, setIsDetailsRequired] = useState<boolean>(false);
+  const [fullName, setFullName] = useState<string>("");
+  const [address, setAddress] = useState<string>("");
+  const [idFile, setIdFile] = useState<File | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser: User | null) => {
-      setUser(currentUser); 
+      setUser(currentUser);
+      if (currentUser) {
+        checkUserDetails(currentUser.uid);
+      }
     });
     return () => unsubscribe();
   }, []);
+
+  const checkUserDetails = async (uid: string) => {
+    const userRef = ref(database, `users/${uid}`);
+    const snapshot = await get(userRef);
+    if (!snapshot.exists()) {
+      setIsDetailsRequired(true);
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     try {
@@ -29,11 +47,6 @@ const LoginPage: React.FC = () => {
     } catch (error) {
       setError((error as Error).message);
     }
-  };
-
-  const handleEmailSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError("Email/password sign-in not implemented in this example");
   };
 
   const handleSignOut = async () => {
@@ -44,21 +57,137 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  if (user) {
+  const handleDetailsSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    // Validate all fields
+    if (!fullName || !address || !idFile || !walletAddress) {
+      setError("Please fill out all required fields and connect your wallet.");
+      return;
+    }
+
+    try {
+      setIsLoading(true); // Start loading spinner
+
+      const storagePath = `id_uploads/${user?.uid}/${idFile.name}`;
+      const fileRef = storageRef(storage, storagePath);
+      const snapshot = await uploadBytes(fileRef, idFile);
+      const fileURL = await getDownloadURL(snapshot.ref);
+
+      const userDetails = {
+        fullName,
+        address,
+        idURL: fileURL,
+        walletAddress,
+      };
+
+      await set(ref(database, `users/${user?.uid}`), userDetails);
+      setIsDetailsRequired(false);
+      setError(null); // Clear error
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setIsLoading(false); // Stop loading spinner
+    }
+  };
+
+  const connectWallet = async () => {
+    if (window.ethereum) {
+      const web3 = new Web3(window.ethereum);
+      try {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        const accounts = await web3.eth.getAccounts();
+        setWalletAddress(accounts[0]);
+
+        if (user) {
+          // Update wallet address in Firebase
+          const userRef = ref(database, `users/${user.uid}/walletAddress`);
+          await set(userRef, accounts[0]);
+        }
+      } catch (err) {
+        setError("User denied account access");
+      }
+    } else {
+      setError("MetaMask not installed. Please install MetaMask!");
+    }
+  };
+
+  if (isDetailsRequired) {
     return (
       <Card className="w-[350px] mx-auto mt-10">
         <CardHeader>
-          <CardTitle>Welcome, {user.displayName}</CardTitle>
-          <CardDescription>You are now signed in.</CardDescription>
+          <CardTitle>Complete Your Profile</CardTitle>
+          <CardDescription>Provide additional details to finish setting up your account</CardDescription>
         </CardHeader>
         <CardContent>
-          <img src={user.photoURL || ''} alt="Profile" className="w-20 h-20 rounded-full mx-auto mb-4" />
-          <p className="text-center">{user.email}</p>
+          <form onSubmit={handleDetailsSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Full Name</Label>
+              <Input
+                id="fullName"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="address">Address</Label>
+              <Input
+                id="address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="idFile">Upload ID</Label>
+              <Input
+                id="idFile"
+                type="file"
+                onChange={(e) => setIdFile(e.target.files ? e.target.files[0] : null)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="walletAddress">Connect Wallet</Label>
+              <Button onClick={connectWallet} type="button" className="w-full">
+                {walletAddress
+                  ? `Connected: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+                  : "Connect Wallet"}
+              </Button>
+            </div>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? <Loader /> : "Submit"}
+            </Button>
+          </form>
         </CardContent>
-        <CardFooter>
-          <Button onClick={handleSignOut} className="w-full">Sign Out</Button>
-        </CardFooter>
+        {error && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
       </Card>
+    );
+  }
+
+  if (user) {
+    return (
+      <div>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Welcome, {user.displayName}</CardTitle>
+            <CardDescription>You are now signed in.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <img src={user.photoURL || ""} alt="Profile" className="w-20 h-20 rounded-full mx-auto mb-4" />
+            <p className="text-center">{user.email}</p>
+          </CardContent>
+          <CardFooter>
+          </CardFooter>
+        </Card>
+        <UserDetails uid={user.uid} />
+      </div>
     );
   }
 
@@ -69,46 +198,10 @@ const LoginPage: React.FC = () => {
         <CardDescription>Sign in to your account</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleEmailSignIn} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input 
-              id="email" 
-              type="email" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required 
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input 
-              id="password" 
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required 
-            />
-          </div>
-          <Button type="submit" className="w-full">Sign In</Button>
-        </form>
-      </CardContent>
-      <CardFooter className="flex flex-col space-y-4">
-        <div className="relative w-full">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-          </div>
-        </div>
-        <Button onClick={handleGoogleSignIn} variant="outline" className="w-full">
-          <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-            <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
-          </svg>
-          Google
+        <Button onClick={handleGoogleSignIn} className="w-full">
+          Sign in with Google
         </Button>
-      </CardFooter>
+      </CardContent>
       {error && (
         <Alert variant="destructive" className="mt-4">
           <AlertTitle>Error</AlertTitle>
