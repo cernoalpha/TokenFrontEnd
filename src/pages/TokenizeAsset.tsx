@@ -109,7 +109,7 @@ const TokenizeAsset: React.FC = () => {
       await set(newAssetRef, assetData);
   
       // Navigate to asset page
-      // navigate(`/asset/${newAssetRef.key}`);
+      navigate(`/login}`);
     } catch (error) {
       console.error("Error creating asset:", error);
       alert("Error creating asset. Please try again.");

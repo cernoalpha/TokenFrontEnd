@@ -49,14 +49,6 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    try {
-      await auth.signOut();
-    } catch (error) {
-      setError((error as Error).message);
-    }
-  };
-
   const handleDetailsSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
