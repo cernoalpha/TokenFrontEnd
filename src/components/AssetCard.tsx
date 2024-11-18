@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 interface AssetCardProps {
@@ -11,17 +11,10 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset }) => (
   <Card>
     <CardHeader>
       <CardTitle>{asset.name}</CardTitle>
-      <CardDescription>Token ID: {asset.tokenId}</CardDescription>
     </CardHeader>
     <CardContent>
       <p>
-        <strong>Value:</strong> ${asset.value.toLocaleString()}
-      </p>
-      <p>
         <strong>Description:</strong> {asset.description || "No description available"}
-      </p>
-      <p>
-        <strong>Price per Share:</strong> ${asset.pricePerShare.toFixed(2)}
       </p>
       {asset.images && asset.images.length > 0 && (
         <div className="mt-2">
