@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useParams } from 'react-router-dom';
+import { database, ref, get, child, push, set } from '@/hooks/firebase';
 
 interface PriceData {
     pricePerShare: number;
@@ -16,18 +17,14 @@ interface ProcessedPriceData {
     price: number;
 }
 
-const fetchPriceHistory = async (id: string): Promise<PriceData[]> => {
-    try {
-        const response = await fetch(`http://localhost:8979/api/assets/${id}/price-history`);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch price history: ${response.statusText}`);
-        }
-        return await response.json();
-    } catch (error) {
-        console.error(error);
-        throw error;
-    }
-};
+interface OrderResponse {
+    message: string;
+    orderId: number;
+    assetId: number;
+    orderType: string;
+    filledTrades: any[];
+    pendingOrder: any | null;
+}
 
 const AssetTradingPage: React.FC = () => {
     const { id } = useParams<{ id?: string }>();
@@ -37,52 +34,136 @@ const AssetTradingPage: React.FC = () => {
 
     const [priceHistory, setPriceHistory] = useState<ProcessedPriceData[]>([]);
     const [currentPrice, setCurrentPrice] = useState<number>(0);
-    const [position, setPosition] = useState<number>(0);
+    const [position, setPosition] = useState<number>(0); 
     const [tradeAmount, setTradeAmount] = useState<string>('');
+    const [pendingOrders, setPendingOrders] = useState<any[]>([]);
+    const [matchedOrders, setMatchedOrders] = useState<any[]>([]);
+    const [completedOrders, setCompletedOrders] = useState<any[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [uid, setUid] = useState<string>(''); 
 
-    const processPriceData = (data: PriceData[]): ProcessedPriceData[] => {
-        return data.map((item) => ({
-            date: new Date(item.timestamp).toLocaleTimeString(),
-            price: item.pricePerShare * 1000,
-        }));
+    const fetchFirebaseData = async () => {
+        try {
+            const userRef = ref(database, `orders/${uid}`);
+            const pending = await get(child(userRef, 'pendingOrders'));
+            const matched = await get(child(userRef, 'MatchedOrders'));
+            const completed = await get(child(userRef, 'CompletedOrders'));
+
+            setPendingOrders(pending.exists() ? Object.values(pending.val()) : []);
+            setMatchedOrders(matched.exists() ? Object.values(matched.val()) : []);
+            setCompletedOrders(completed.exists() ? Object.values(completed.val()) : []);
+        } catch (err) {
+            console.error('Error fetching Firebase data:', err);
+            setError('Failed to fetch order data.');
+        }
     };
 
-    const loadPriceHistory = async () => {
+    const fetchPriceHistory = async () => {
         try {
-            setError(null);
-            const data = await fetchPriceHistory(id);
-            const processedData = processPriceData(data);
+            const response = await fetch(`/api/assets/${id}/price-history`);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch price history: ${response.statusText}`);
+            }
+            const data: PriceData[] = await response.json();
+            const processedData = data.map((item) => ({
+                date: new Date(item.timestamp).toLocaleTimeString(),
+                price: item.pricePerShare * 1000,
+            }));
             setPriceHistory(processedData);
             setCurrentPrice(processedData[processedData.length - 1].price);
         } catch (err) {
-            setError("Error fetching price history. Please try again.");
+            console.error('Error fetching price history:', err);
+            setError('Failed to fetch price history.');
+        }
+    };
+
+    const handleBuyOrder = async () => {
+        if (!tradeAmount || isNaN(Number(tradeAmount))) {
+            setError('Invalid trade amount.');
+            return;
+        }
+
+        try {
+            const requestBody = {
+                owneraddress: uid,
+                assetId: id,
+                shareAmount: Number(tradeAmount),
+                pricePerShare: currentPrice,
+            };
+
+            const response = await fetch('/api/orders/buy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to place buy order: ${response.statusText}`);
+            }
+
+            const data: OrderResponse = await response.json();
+            setPendingOrders((prev) => [...prev, data.pendingOrder]);
+            setError(null);
+        } catch (err) {
+            console.error('Error placing buy order:', err);
+            setError('Failed to place buy order.');
+        }
+    };
+
+    const handleSellOrder = async () => {
+        if (!tradeAmount || isNaN(Number(tradeAmount))) {
+            setError('Invalid trade amount.');
+            return;
+        }
+
+        const sellAmount = Number(tradeAmount);
+        const matchedPosition = matchedOrders.reduce(
+            (acc, order) => (order.assetId === id ? acc + order.shareAmount : acc),
+            0
+        );
+
+        if (sellAmount > matchedPosition) {
+            setError('Not enough assets to sell.');
+            return;
+        }
+
+        try {
+            const requestBody = {
+                owneraddress: uid,
+                assetId: id,
+                shareAmount: sellAmount,
+                pricePerShare: currentPrice,
+            };
+
+            const response = await fetch('/api/orders/sell', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to place sell order: ${response.statusText}`);
+            }
+
+            const data: OrderResponse = await response.json();
+            setMatchedOrders((prev) =>
+                prev.map((order) =>
+                    order.orderId === data.pendingOrder?.orderId
+                        ? { ...order, shareAmount: order.shareAmount - sellAmount }
+                        : order
+                )
+            );
+            setError(null);
+        } catch (err) {
+            console.error('Error placing sell order:', err);
+            setError('Failed to place sell order.');
         }
     };
 
     useEffect(() => {
-        loadPriceHistory();
-        const interval = setInterval(loadPriceHistory, 60000);
-        return () => clearInterval(interval);
+        fetchFirebaseData();
+        fetchPriceHistory();
     }, [id]);
-
-    const handleBuy = () => {
-        if (tradeAmount && !isNaN(parseFloat(tradeAmount))) {
-            setPosition(prev => prev + parseFloat(tradeAmount));
-            setTradeAmount('');
-        }
-    };
-
-    const handleSell = () => {
-        if (tradeAmount && !isNaN(parseFloat(tradeAmount)) && position >= parseFloat(tradeAmount)) {
-            setPosition(prev => prev - parseFloat(tradeAmount));
-            setTradeAmount('');
-        }
-    };
-
-    const minPrice = Math.min(...priceHistory.map(d => d.price));
-    const maxPrice = Math.max(...priceHistory.map(d => d.price));
-    const yAxisDomain = [minPrice * 0.95, maxPrice * 1.05];
 
     return (
         <div className="container mx-auto p-4">
@@ -99,18 +180,12 @@ const AssetTradingPage: React.FC = () => {
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="date" />
                                 <YAxis
-                                    domain={yAxisDomain}
                                     tickFormatter={(value) => `$${(value / 1000).toFixed(2)}`}
                                 />
                                 <Tooltip
                                     formatter={(value: number) => [`$${(value / 1000).toFixed(2)}`, 'Price']}
                                 />
-                                <Line
-                                    type="monotone"
-                                    dataKey="price"
-                                    stroke="#8884d8"
-                                    dot={false}
-                                />
+                                <Line type="monotone" dataKey="price" stroke="#8884d8" dot={false} />
                             </LineChart>
                         </ResponsiveContainer>
                     </CardContent>
@@ -134,8 +209,12 @@ const AssetTradingPage: React.FC = () => {
                                 />
                             </div>
                             <div className="flex space-x-2">
-                                <Button onClick={handleBuy} className="flex-1">Buy</Button>
-                                <Button onClick={handleSell} className="flex-1" variant="outline">Sell</Button>
+                                <Button onClick={handleBuyOrder} className="flex-1">
+                                    Buy
+                                </Button>
+                                <Button onClick={handleSellOrder} className="flex-1" variant="outline">
+                                    Sell
+                                </Button>
                             </div>
                         </div>
                     </CardContent>
