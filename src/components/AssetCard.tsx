@@ -34,7 +34,7 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset }) => (
     </CardContent>
     <CardFooter>
       <Button asChild>
-        <Link to={`/asset/${asset.id}`}>View Details</Link>
+        <Link to={`/${asset.id}/trade`}>Trade</Link>
       </Button>
     </CardFooter>
   </Card>

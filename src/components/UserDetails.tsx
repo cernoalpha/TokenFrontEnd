@@ -71,7 +71,7 @@ const UserDetails: React.FC<{ uid: string }> = ({ uid }) => {
                         <ul className="list-disc pl-4">
                             {pendingOrders.map((order, index) => (
                                 <li key={index}>
-                                    <strong>Order ID:</strong> {order.orderId} | <strong>Asset ID:</strong> {order.assetId} | <strong>Price/Share:</strong> ${order.pricePerShare}
+                                    <strong>Order ID:</strong> {order.orderId} | <strong>Asset ID:</strong> {order.assetId} | <strong>Price:</strong> ${order.pricePerShare}
                                 </li>
                             ))}
                         </ul>
