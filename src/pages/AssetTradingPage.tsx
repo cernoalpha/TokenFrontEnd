@@ -5,68 +5,66 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useParams } from 'react-router-dom';
-import { useAsset } from '@/services/assetService';
 
 interface PriceData {
+    pricePerShare: number;
+    timestamp: number;
+}
+
+interface ProcessedPriceData {
     date: string;
     price: number;
 }
 
-// Corrected function to generate mock price history
-const generatePriceHistory = (initialValue: number): PriceData[] => {
-    const data: PriceData[] = [];
-    const amplitude = initialValue * 0.1; 
-    const frequency = 0.2;
-    const phaseShift = Math.random() * Math.PI;
-    for (let i = 30; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-
-        const sineValue = Math.sin(frequency * i + phaseShift) * amplitude;
-        const randomFactor = (Math.random() - 0.5) * amplitude * 0.2;
-        const price = initialValue + sineValue + randomFactor;
-
-        data.push({
-            date: date.toISOString().split('T')[0],
-            price: Math.max(0, price), 
-        });
+const fetchPriceHistory = async (id: string): Promise<PriceData[]> => {
+    try {
+        const response = await fetch(`http://localhost:8979/api/assets/${id}/price-history`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch price history: ${response.statusText}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error(error);
+        throw error;
     }
-    return data;
 };
 
 const AssetTradingPage: React.FC = () => {
     const { id } = useParams<{ id?: string }>();
     if (!id) {
-        return <div>No asset ID provided.</div>; 
+        return <div>No asset ID provided.</div>;
     }
-    const asset = useAsset(id); 
-    const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
+
+    const [priceHistory, setPriceHistory] = useState<ProcessedPriceData[]>([]);
     const [currentPrice, setCurrentPrice] = useState<number>(0);
     const [position, setPosition] = useState<number>(0);
     const [tradeAmount, setTradeAmount] = useState<string>('');
+    const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (asset) {
-            const history = generatePriceHistory(asset.value);
-            setPriceHistory(history);
-            setCurrentPrice(history[history.length - 1].price);
+    const processPriceData = (data: PriceData[]): ProcessedPriceData[] => {
+        return data.map((item) => ({
+            date: new Date(item.timestamp).toLocaleTimeString(),
+            price: item.pricePerShare * 1000,
+        }));
+    };
+
+    const loadPriceHistory = async () => {
+        try {
+            setError(null);
+            const data = await fetchPriceHistory(id);
+            const processedData = processPriceData(data);
+            setPriceHistory(processedData);
+            setCurrentPrice(processedData[processedData.length - 1].price);
+        } catch (err) {
+            setError("Error fetching price history. Please try again.");
         }
-    }, [asset]);
+    };
 
     useEffect(() => {
-        if (currentPrice === 0) return;
-
-        const interval = setInterval(() => {
-            const newPrice = currentPrice + (Math.random() - 0.5) * currentPrice * 0.02; 
-            setCurrentPrice(newPrice);
-            setPriceHistory(prev => [
-                ...prev.slice(1),
-                { date: new Date().toISOString().split('T')[0], price: newPrice }
-            ]);
-        }, 5000);
-
+        loadPriceHistory();
+        const interval = setInterval(loadPriceHistory, 60000);
         return () => clearInterval(interval);
-    }, [currentPrice]);
+    }, [id]);
 
     const handleBuy = () => {
         if (tradeAmount && !isNaN(parseFloat(tradeAmount))) {
@@ -82,17 +80,14 @@ const AssetTradingPage: React.FC = () => {
         }
     };
 
-    if (!asset) {
-        return <div>Loading asset data...</div>;
-    }
-
     const minPrice = Math.min(...priceHistory.map(d => d.price));
     const maxPrice = Math.max(...priceHistory.map(d => d.price));
-    const yAxisDomain = [minPrice * 0.95, maxPrice * 1.05]; 
+    const yAxisDomain = [minPrice * 0.95, maxPrice * 1.05];
 
     return (
         <div className="container mx-auto p-4">
-            <h1 className="text-3xl font-bold mb-6">Trading {asset.name}</h1>
+            <h1 className="text-3xl font-bold mb-6">Trading Asset {id}</h1>
+            {error && <div className="text-red-500 mb-4">{error}</div>}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="md:col-span-2">
                     <CardHeader>
@@ -103,17 +98,17 @@ const AssetTradingPage: React.FC = () => {
                             <LineChart data={priceHistory}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="date" />
-                                <YAxis 
-                                    domain={yAxisDomain} 
-                                    tickFormatter={(value) => `$${value.toFixed(0)}`}
+                                <YAxis
+                                    domain={yAxisDomain}
+                                    tickFormatter={(value) => `$${(value / 1000).toFixed(2)}`}
                                 />
-                                <Tooltip 
-                                    formatter={(value: number) => [`$${value.toFixed(2)}`, 'Price']}
+                                <Tooltip
+                                    formatter={(value: number) => [`$${(value / 1000).toFixed(2)}`, 'Price']}
                                 />
-                                <Line 
-                                    type="monotone" 
-                                    dataKey="price" 
-                                    stroke="#8884d8" 
+                                <Line
+                                    type="monotone"
+                                    dataKey="price"
+                                    stroke="#8884d8"
                                     dot={false}
                                 />
                             </LineChart>
@@ -125,7 +120,7 @@ const AssetTradingPage: React.FC = () => {
                         <CardTitle>Trading</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="mb-4">Current Price: ${currentPrice.toFixed(2)}</p>
+                        <p className="mb-4">Current Price: ${(currentPrice / 1000).toFixed(2)}</p>
                         <p className="mb-4">Your Position: {position} units</p>
                         <div className="space-y-4">
                             <div>
