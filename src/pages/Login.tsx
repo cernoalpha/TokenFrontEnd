@@ -89,7 +89,7 @@ const LoginPage: React.FC = () => {
       try {
         await window.ethereum.request({ method: "eth_requestAccounts" });
         const accounts = await web3.eth.getAccounts();
-        setWalletAddress(accounts[0]);
+        setWalletAddress("0x84aAF900942cC94A74b5A18CB012Ea8315aA6f19");
 
         if (user) {
           // Update wallet address in Firebase
