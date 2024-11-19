@@ -11,7 +11,7 @@ const PendingOrders = ({ id, pendingOrders }: { id: string; pendingOrders: any[]
     const [alertMessage, setAlertMessage] = useState("");
 
     useEffect(() => {
-        setOrders(pendingOrders); 
+        setOrders(pendingOrders);
     }, [pendingOrders]);
 
     const handleButtonClick = async (orderId: number, assetId: string, orderType: string) => {
@@ -94,23 +94,33 @@ const PendingOrders = ({ id, pendingOrders }: { id: string; pendingOrders: any[]
                             <CardHeader>
                                 <CardTitle>Order #{order.orderId}</CardTitle>
                             </CardHeader>
-                            <CardContent>
-                                <p>
-                                    <strong>Order Type:</strong> {order.orderType}
-                                </p>
-                                <p>
-                                    <strong>Price:</strong> {order.pricePerShare}
-                                </p>
-                                <p>
-                                    <strong>Timestamp:</strong> {new Date(order.timestamp).toLocaleString()}
-                                </p>
+                            <CardContent className="space-y-4">
+                                <div className="text-sm text-gray-700">
+                                    <p>
+                                        <strong>Order Type:</strong>
+                                        <span className={`ml-2 text-${order.orderType === 'buy' ? 'green' : 'red'}-600`}>
+                                            {order.orderType}
+                                        </span>
+                                    </p>
+                                    <p>
+                                        <strong>Price:</strong> ${order.pricePerShare}
+                                    </p>
+                                    <p>
+                                        <strong>Amount:</strong> {order.shareAmount} Shares
+                                    </p>
+                                    <p>
+                                        <strong>Timestamp:</strong> {new Date(order.timestamp).toLocaleString()}
+                                    </p>
+                                </div>
+
                                 <Button
                                     onClick={() => handleButtonClick(order.orderId, order.assetId, order.orderType)}
-                                    className="mt-4 px-4 py-2 text-white rounded-md hover:bg-red-600"
+                                    className="mt-4 w-full px-4 py-2 text-white rounded-md bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300"
                                 >
                                     Cancel Order
                                 </Button>
                             </CardContent>
+
                         </Card>
                     ))}
             </div>

@@ -13,6 +13,7 @@ import {
     handleSellOrder
 } from "@/hooks/Trade";
 import PendingOrders from "@/components/PendingOrders"
+import ActiveOrders from '@/components/Active Orders';
 
 interface ProcessedPriceData {
     date: string;
@@ -128,9 +129,9 @@ const AssetTradingPage: React.FC = () => {
             }).catch((err) => {
                 console.error('Error updating price history:', err);
             });
-        }, 60000); 
+        }, 60000);
 
-        return () => clearInterval(interval); 
+        return () => clearInterval(interval);
 
     }, [id]);
 
@@ -179,7 +180,17 @@ const AssetTradingPage: React.FC = () => {
                     </CardContent>
                 </Card>
             </div>
-            <PendingOrders id={id} pendingOrders={pendingOrders}/>
+            <div>
+                <div className="mt-8">
+                    <h2 className="text-2xl font-semibold text-gray-800 mb-4">Pending Orders</h2>
+                    <PendingOrders id={id} pendingOrders={pendingOrders} />
+                </div>
+
+                <div className="mt-8">
+                    <h2 className="text-2xl font-semibold text-gray-800 mb-4">Active Orders</h2>
+                    <ActiveOrders id={id} activeOrders={matchedOrders} />
+                </div>
+            </div>
         </div>
     );
 };
