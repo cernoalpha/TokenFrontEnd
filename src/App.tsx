@@ -18,6 +18,7 @@ const App = () => {
             <Route path="/tokenize" element={<TokenizeAsset />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/:id/trade" element={<AssetTradingPage />} />
+            <Route path="login/:id/trade" element={<AssetTradingPage />} />
           </Routes>
         </main>
       </div>

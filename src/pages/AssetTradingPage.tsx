@@ -12,6 +12,7 @@ import {
     handleBuyOrder,
     handleSellOrder
 } from "@/hooks/Trade";
+import PendingOrders from "@/components/PendingOrders"
 
 interface ProcessedPriceData {
     date: string;
@@ -60,7 +61,7 @@ const AssetTradingPage: React.FC = () => {
 
                 // Calculate user's position
                 const position = firebaseData.matchedOrders.reduce(
-                    (acc, order) => (order.assetId === id ? acc + order.shareAmount : acc),
+                    (acc, order) => (order.assetId === id ? acc + order.shares : acc),
                     0
                 );
                 setPosition(position);
@@ -178,6 +179,7 @@ const AssetTradingPage: React.FC = () => {
                     </CardContent>
                 </Card>
             </div>
+            <PendingOrders id={id} pendingOrders={pendingOrders}/>
         </div>
     );
 };

@@ -3,6 +3,8 @@ import { ref, onValue } from "firebase/database";
 import { database } from "@/hooks/firebase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "./ui/button";
+import { useNavigate } from "react-router-dom";
 
 interface Asset {
     description: any;
@@ -15,16 +17,33 @@ interface Asset {
 }
 
 interface PendingOrder {
+    shareAmount: number;
+    timestamp: number;
+    orderType: string;
     orderId: string;
     assetId: string;
     pricePerShare: number;
 }
 
+interface MatchedOrder {
+    assetId: string;
+    buyer: string;
+    orderId: number;
+    orderType: string;
+    price: number;
+    seller: string;
+    shares: number;
+    timestamp: number;
+}
+
+
 const UserDetails: React.FC<{ uid: string }> = ({ uid }) => {
     const [pendingOrders, setPendingOrders] = useState<PendingOrder[] | null>(null);
-    const [matchedOrders, setMatchedOrders] = useState<Record<string, any> | null>(null);
+    const [matchedOrders, setMatchedOrders] = useState<MatchedOrder[] | null>(null);
     const [assets, setAssets] = useState<Asset[] | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    const navigate = useNavigate()
 
     useEffect(() => {
 
@@ -42,7 +61,7 @@ const UserDetails: React.FC<{ uid: string }> = ({ uid }) => {
         const matchedOrdersRef = ref(database, `orders/${uid}/MatchedOrders`);
         onValue(matchedOrdersRef, (snapshot) => {
             if (snapshot.exists()) {
-                setMatchedOrders(snapshot.val());
+                setMatchedOrders(Object.values(snapshot.val()));
             } else {
                 setMatchedOrders(null);
             }
@@ -59,6 +78,10 @@ const UserDetails: React.FC<{ uid: string }> = ({ uid }) => {
         }, (error) => setError(error.message));
     }, [uid]);
 
+    function handleButtonClick(assetId: string) {
+        navigate(`${assetId}/trade`, { replace: true })
+    }
+
     return (
         <div className="space-y-6">
             {/* Pending Orders */}
@@ -67,16 +90,37 @@ const UserDetails: React.FC<{ uid: string }> = ({ uid }) => {
                     <CardTitle>Pending positions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {pendingOrders ? (
-                        <ul className="list-disc pl-4">
+                    {pendingOrders && pendingOrders.length > 0 ? (
+                        <div className="space-y-4">
                             {pendingOrders.map((order, index) => (
-                                <li key={index}>
-                                    <strong>Order ID:</strong> {order.orderId} | <strong>Asset ID:</strong> {order.assetId} | <strong>Price:</strong> ${order.pricePerShare}
-                                </li>
+                                <div key={index} className="p-4 border border-gray-300 rounded-lg shadow-md hover:shadow-lg transition duration-200">
+                                    <div className="flex justify-between items-center">
+                                        <div className="text-lg font-semibold text-gray-800">
+                                            <strong>Order ID:</strong> {order.orderId}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm text-gray-500">{new Date(order.timestamp).toLocaleString()}</span>
+                                            <span className={`px-2 py-1 text-xs rounded-full ${order.orderType === 'buy' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>
+                                                {order.orderType}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="mt-2 text-sm text-gray-600">
+                                        <strong>Price:</strong> ${order.pricePerShare} | <strong>Amount:</strong> {order.shareAmount} Shares
+                                    </div>
+                                    <div className="mt-4">
+                                        <Button
+                                            onClick={() => handleButtonClick(order.assetId)}
+                                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                        >
+                                            GoTo Order
+                                        </Button>
+                                    </div>
+                                </div>
                             ))}
-                        </ul>
+                        </div>
                     ) : (
-                        <p>No pending orders available.</p>
+                        <p className="text-center text-gray-500">No pending orders available.</p>
                     )}
                 </CardContent>
             </Card>
@@ -87,18 +131,54 @@ const UserDetails: React.FC<{ uid: string }> = ({ uid }) => {
                     <CardTitle>Active positions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {matchedOrders ? (
-                        <ul className="list-disc pl-4">
-                            {Object.entries(matchedOrders).map(([key, value]) => (
-                                <li key={key}>
-                                    <strong>Order ID:</strong> {key} | <strong>Details:</strong> {JSON.stringify(value)}
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p>No matched orders available.</p>
-                    )}
-                </CardContent>
+    {matchedOrders && matchedOrders.length > 0 ? (
+        <div className="space-y-4">
+            {matchedOrders.map((order, index) => (
+                <div
+                    key={index}
+                    className="p-4 border border-gray-300 rounded-lg shadow-md hover:shadow-lg transition duration-200"
+                >
+                    <div className="flex justify-between items-center">
+                        <div className="text-lg font-semibold text-gray-800">
+                            <strong>Order ID:</strong> {order.orderId}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-500">
+                                {new Date(order.timestamp).toLocaleString()}
+                            </span>
+                            <span
+                                className={`px-2 py-1 text-xs rounded-full ${
+                                    order.orderType === "buy"
+                                        ? "bg-green-200 text-green-800"
+                                        : "bg-red-200 text-red-800"
+                                }`}
+                            >
+                                {order.orderType}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="mt-2 text-sm text-gray-600">
+                        <p>
+                            <strong>Price:</strong> ${order.price} |{" "}
+                            <strong>Shares:</strong> {order.shares}
+                        </p>
+                    </div>
+                    <div className="mt-4">
+                        <Button
+                            onClick={() => handleButtonClick(order.assetId)}
+                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        >
+                            Take Action
+                        </Button>
+                    </div>
+                </div>
+            ))}
+        </div>
+    ) : (
+        <p className="text-center text-gray-500">No matched orders available.</p>
+    )}
+</CardContent>
+
             </Card>
 
             {/* User Assets */}
@@ -128,10 +208,10 @@ const UserDetails: React.FC<{ uid: string }> = ({ uid }) => {
                                     </div>
                                     <div
                                         className={`text-sm font-semibold px-3 py-1 rounded-full ${asset.approved === true
-                                                ? "bg-green-100 text-green-600"
-                                                : asset.approved === false
-                                                    ? "bg-red-100 text-red-600"
-                                                    : "bg-yellow-100 text-yellow-600"
+                                            ? "bg-green-100 text-green-600"
+                                            : asset.approved === false
+                                                ? "bg-red-100 text-red-600"
+                                                : "bg-yellow-100 text-yellow-600"
                                             }`}
                                     >
                                         {asset.approved === true
