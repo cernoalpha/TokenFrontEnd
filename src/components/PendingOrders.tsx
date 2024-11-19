@@ -13,7 +13,6 @@ const PendingOrders = ({ id, pendingOrders }: { id: string; pendingOrders: any[]
     useEffect(() => {
         setOrders(pendingOrders);
     }, [pendingOrders]);
-
     const handleButtonClick = async (orderId: number, assetId: string, orderType: string) => {
         const user = auth.currentUser;
 
@@ -85,7 +84,7 @@ const PendingOrders = ({ id, pendingOrders }: { id: string; pendingOrders: any[]
 
             <div className="flex flex-wrap gap-4 mt-8">
                 {orders
-                    .filter((order) => order.assetId === id)
+                    .filter((order) => order.assetId == id)
                     .map((order) => (
                         <Card
                             key={order.orderId}
@@ -103,7 +102,7 @@ const PendingOrders = ({ id, pendingOrders }: { id: string; pendingOrders: any[]
                                         </span>
                                     </p>
                                     <p>
-                                        <strong>Price:</strong> ${order.pricePerShare}
+                                        <strong>Price:</strong> ${order.pricePerShare/1000}
                                     </p>
                                     <p>
                                         <strong>Amount:</strong> {order.shareAmount} Shares
